@@ -1,0 +1,10 @@
+python-dotenv
+openai
+pyupbit
+ta
+sqlite3
+streamlit
+plotly
+pykrx
+requests
+beautifulsoup4

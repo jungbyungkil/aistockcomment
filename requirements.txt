@@ -8,3 +8,5 @@ plotly
 pykrx
 requests
 beautifulsoup4
+
+schedule

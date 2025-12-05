@@ -3,6 +3,8 @@ import json
 from openai import OpenAI
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
+import schedule
+import time
 import sqlite3
 import requests
 from bs4 import BeautifulSoup
@@ -181,10 +183,11 @@ def get_ai_advice(stock_name, ticker, goal, avg_buy_price, stock_data, news_head
 3.  **기술적 분석 데이터 (OHLCV + 지표)**: 가격 추세와 모멘텀을 분석합니다.
 
 이 세 가지 측면(뉴스 심리, 기본적 가치 평가, 기술적 분석)을 종합하여 전체적이고 논리적인 추천을 제공하세요.
-특히, 고객의 평균 매수 단가를 반드시 고려하여, 손실을 최소화하거나 최소한 원금(본전)을 회복할 수 있는 전략에 초점을 맞춰 조언해야 합니다.
 
-- 추천이 '즉시 매도(SELL NOW)'인 경우, 현재 가격이 고객의 매수 단가와 비교하여 어떤 상태인지 언급하고, 지금 매도하는 것이 왜 최선인지 설명하세요.
-- 추천이 '보유(HOLD)'인 경우, 고객의 매수 단가에 도달하거나 그 이상으로 상승하기 위해 어떤 기술적 신호나 시장 조건이 필요한지 구체적으로 설명하고, 예상 목표가를 제시하세요.
+**[매우 중요한 규칙]**
+고객의 목표가 '최소 매수 단가 이상에서 매도'하는 것일 경우, 현재 주가가 고객의 평균 매수 단가보다 낮다면 **절대로 'SELL NOW'를 추천해서는 안 됩니다.**
+이 경우, 기술적으로 하락 추세가 예상되더라도 반드시 'HOLD'를 추천하고, 손실을 최소화하기 위한 전략(예: 추가 하락 시 손절 라인 제안) 또는 반등을 기다리기 위한 조건을 설명해야 합니다.
+고객의 심리적 안정과 원금 회복 의지가 기술적 분석보다 우선순위가 높습니다.
 
 응답은 다음 구조의 한국어 JSON 형식으로 제공해야 합니다:
 {{
@@ -244,10 +247,8 @@ def print_advice(stock_name, advice):
     print("="*50 + "\n")
 
 
-if __name__ == "__main__":
-    # 데이터베이스 초기화
-    init_stock_database()
-
+def run_analysis():
+    """주식 분석 및 AI 조언 요청 작업을 수행하는 메인 함수"""
     # 분석할 주식 목록 (종목명, 종목코드, 매도 목표)
     # 여기에 고객님의 평균 매수 단가를 추가했습니다.
     stocks_to_analyze = [
@@ -271,7 +272,9 @@ if __name__ == "__main__":
         }
     ]
 
-    print("🚀 AI 주식 매도 타이밍 분석을 시작합니다...")
+    print(f"\n{'='*60}")
+    print(f"🚀 AI 주식 매도 타이밍 분석을 시작합니다... ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})")
+    print(f"{'='*60}")
 
     for stock_info in stocks_to_analyze:
         print(f"\n[1/3] 📊 '{stock_info['name']}'의 기술적 데이터를 수집합니다...")
@@ -310,7 +313,26 @@ if __name__ == "__main__":
         else:
             print(f"  ⚠️ '{stock_info['name']}'의 데이터를 가져올 수 없어 분석을 건너뜁니다.")
 
-    print("✅ 모든 주식에 대한 분석이 완료되었습니다.")
+    print("\n✅ 모든 주식에 대한 분석이 완료되었습니다.")
+    print(f"다음 스케줄까지 대기합니다...")
+
+
+if __name__ == "__main__":
+    # 데이터베이스 초기화
+    init_stock_database()
+
+    # 스케줄 설정
+    # 장 시작 직전(08:50)과 장 마감 직전(15:00)에 실행
+    schedule.every().day.at("08:50").do(run_analysis)
+    schedule.every().day.at("15:00").do(run_analysis)
+
+    print("✅ 스케줄러가 설정되었습니다. (매일 08:50, 15:00)")
+    print("프로그램 시작 시 1회 즉시 실행합니다.")
+    run_analysis() # 프로그램 시작 시 1회 즉시 실행
+
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 
  
